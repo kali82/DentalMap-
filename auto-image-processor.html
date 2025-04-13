@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MaroDent - Automatyczny Procesor Obrazów Zębów</title>
+    <!-- Dodaj jQuery dla selektora :contains -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        padding: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      h1,
+      h2 {
+        text-align: center;
+      }
+
+      .container {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .image-container {
+        position: relative;
+        border: 1px solid #ccc;
+        overflow: hidden;
+        margin: 0 auto;
+      }
+
+      #original-image {
+        display: block;
+        max-width: 100%;
+      }
+
+      .controls {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin: 20px 0;
+      }
+
+      button {
+        padding: 8px 16px;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background-color: #2980b9;
+      }
+
+      .instructions {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+      }
+
+      .extracted-images {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 10px;
+        margin-top: 20px;
+      }
+
+      .extracted-image {
+        border: 1px solid #ddd;
+        padding: 5px;
+        text-align: center;
+      }
+
+      .extracted-image img {
+        max-width: 100%;
+        height: auto;
+      }
+
+      .extracted-image .name {
+        margin-top: 5px;
+        font-size: 12px;
+      }
+
+      #debug-canvas {
+        border: 1px solid #ccc;
+        margin-top: 20px;
+        display: none; /* Hidden by default */
+      }
+
+      .progress-container {
+        width: 100%;
+        background-color: #f1f1f1;
+        border-radius: 5px;
+        margin: 10px 0;
+      }
+
+      .progress-bar {
+        height: 20px;
+        background-color: #4caf50;
+        border-radius: 5px;
+        width: 0%;
+        text-align: center;
+        line-height: 20px;
+        color: white;
+      }
+
+      .checkbox-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 10px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>MaroDent - Automatyczny Procesor Obrazów Zębów</h1>
+
+    <div class="container">
+      <div class="instructions">
+        <h3>Instrukcje:</h3>
+        <ol>
+          <li>
+            Kliknij "Automatycznie wykryj zęby", aby program automatycznie
+            wykrył i wyciął zęby z obrazu
+          </li>
+          <li>
+            Sprawdź wyniki i w razie potrzeby dostosuj parametry wykrywania
+          </li>
+          <li>
+            Kliknij "Pobierz wszystkie obrazy", aby zapisać wycinki zębów do
+            folderu images
+          </li>
+        </ol>
+      </div>
+
+      <div class="controls">
+        <button id="auto-detect-btn">Automatycznie wykryj zęby</button>
+        <button id="download-all-btn" disabled>Pobierz wszystkie obrazy</button>
+        <button id="toggle-debug-btn">Pokaż/ukryj podgląd detekcji</button>
+      </div>
+
+      <div class="checkbox-container">
+        <input type="checkbox" id="remove-background" checked />
+        <label for="remove-background">Usuń tło (przezroczystość)</label>
+      </div>
+
+      <div class="progress-container">
+        <div id="progress-bar" class="progress-bar">0%</div>
+      </div>
+
+      <div class="image-container">
+        <img id="original-image" src="tooth.jpg" alt="Obraz zębów" crossorigin="anonymous" />
+      </div>
+
+      <canvas id="debug-canvas" width="800" height="600"></canvas>
+
+      <h2>Wykryte zęby</h2>
+      <div id="extracted-images" class="extracted-images">
+        <!-- Tutaj będą dodawane wycinki zębów -->
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        // Elementy DOM
+        const originalImage = document.getElementById("original-image");
+        const autoDetectBtn = document.getElementById("auto-detect-btn");
+        const downloadAllBtn = document.getElementById("download-all-btn");
+        const toggleDebugBtn = document.getElementById("toggle-debug-btn");
+        const debugCanvas = document.getElementById("debug-canvas");
+        const extractedImagesContainer =
+          document.getElementById("extracted-images");
+        const progressBar = document.getElementById("progress-bar");
+        const removeBackgroundCheckbox =
+          document.getElementById("remove-background");
+
+        // Zmienne globalne
+        let extractedImages = [];
+        let imageLoaded = false;
+
+        // Czekaj na załadowanie obrazu
+        originalImage.onload = function () {
+          imageLoaded = true;
+          console.log(
+            "Obraz załadowany, wymiary:",
+            originalImage.width,
+            "x",
+            originalImage.height
+          );
+
+          // Ustaw wymiary canvas do debugowania
+          debugCanvas.width = originalImage.width;
+          debugCanvas.height = originalImage.height;
+        };
+        
+        // Dodaj obsługę błędu ładowania obrazu
+        originalImage.onerror = function() {
+          console.error('Błąd ładowania obrazu');
+          alert('Wystąpił błąd podczas ładowania obrazu. Sprawdź, czy plik tooth.jpg istnieje.');
+        };
+        
+        // Sprawdź, czy obraz jest już załadowany (w przypadku obrazu z pamięci podręcznej)
+        if (originalImage.complete) {
+          imageLoaded = true;
+          console.log('Obraz już załadowany z pamięci podręcznej');
+          debugCanvas.width = originalImage.width || 800;
+          debugCanvas.height = originalImage.height || 600;
+        }
+
+        // Obsługa przycisku debugowania
+        toggleDebugBtn.addEventListener("click", function () {
+          if (debugCanvas.style.display === "none") {
+            debugCanvas.style.display = "block";
+          } else {
+            debugCanvas.style.display = "none";
+          }
+        });
+
+        // Obsługa przycisku automatycznego wykrywania
+        autoDetectBtn.addEventListener("click", function () {
+          if (!imageLoaded) {
+            alert(
+              "Obraz nie został jeszcze załadowany. Proszę odświeżyć stronę i spróbować ponownie."
+            );
+            return;
+          }
+
+          // Wyczyść poprzednie wyniki
+          extractedImagesContainer.innerHTML = "";
+          extractedImages = [];
+
+          // Rozpocznij proces wykrywania
+          detectTeeth();
+        });
+
+        // Funkcja wykrywająca zęby
+        function detectTeeth() {
+          try {
+            // Utwórz canvas do przetwarzania obrazu
+            const canvas = document.createElement("canvas");
+            canvas.width = originalImage.width;
+            canvas.height = originalImage.height;
+            const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+            // Narysuj oryginalny obraz na canvas
+            ctx.drawImage(originalImage, 0, 0);
+
+            try {
+              // Pobierz dane obrazu
+              const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              const data = imageData.data;
+              
+              // Narysuj obraz na canvas debugowania
+              const debugCtx = debugCanvas.getContext("2d");
+              debugCtx.drawImage(originalImage, 0, 0);
+
+              // Znajdź wszystkie niebieskie zęby
+              console.log("Wykrywanie niebieskich zębów...");
+              const blueTeeth = findTeethByColor(
+                data,
+                canvas.width,
+                canvas.height,
+                { r: 0, g: 100, b: 200 }, // Przybliżony kolor niebieski
+                { r: 100, g: 100, b: 100 }, // Tolerancja
+                debugCtx,
+                "blue"
+              );
+
+              // Znajdź wszystkie czerwone zęby
+              console.log("Wykrywanie czerwonych zębów...");
+              const redTeeth = findTeethByColor(
+                data,
+                canvas.width,
+                canvas.height,
+                { r: 200, g: 0, b: 0 }, // Przybliżony kolor czerwony
+                { r: 100, g: 100, b: 100 }, // Tolerancja
+                debugCtx,
+                "red"
+              );
+
+              // Połącz wyniki
+              const allTeeth = [...blueTeeth, ...redTeeth];
+              console.log(
+                `Wykryto ${blueTeeth.length} niebieskich zębów i ${redTeeth.length} czerwonych zębów.`
+              );
+
+              // Posortuj zęby według pozycji Y (od góry do dołu)
+              allTeeth.sort((a, b) => a.y - b.y);
+
+              // Wytnij i wyświetl każdy ząb
+              extractTeeth(allTeeth);
+            } catch (error) {
+              console.error("Błąd podczas przetwarzania obrazu:", error);
+              
+              // Fallback dla błędu CORS - użyj prostego podziału obrazu na sekcje
+              alert("Wystąpił błąd bezpieczeństwa podczas przetwarzania obrazu. Używam alternatywnej metody wykrywania.");
+              useFallbackDetection();
+            }
+          } catch (error) {
+            console.error("Błąd podczas wykrywania zębów:", error);
+            alert("Wystąpił błąd podczas wykrywania zębów: " + error.message);
+          }
+        }
+        
+        // Funkcja alternatywna dla wykrywania zębów (fallback)
+        function useFallbackDetection() {
+          // Podziel obraz na siatkę 3x3 (9 sekcji)
+          const gridSize = 3;
+          const sectionWidth = originalImage.width / gridSize;
+          const sectionHeight = originalImage.height / gridSize;
+          
+          const teeth = [];
+          
+          // Utwórz siatkę "zębów" na podstawie podziału obrazu
+          for (let row = 0; row < gridSize; row++) {
+            for (let col = 0; col < gridSize; col++) {
+              const tooth = {
+                x1: Math.floor(col * sectionWidth),
+                y1: Math.floor(row * sectionHeight),
+                width: Math.floor(sectionWidth),
+                height: Math.floor(sectionHeight),
+                x: Math.floor(col * sectionWidth + sectionWidth / 2),
+                y: Math.floor(row * sectionHeight + sectionHeight / 2),
+                color: (row + col) % 2 === 0 ? "blue" : "red" // Naprzemiennie niebieskie i czerwone
+              };
+              teeth.push(tooth);
+            }
+          }
+          
+          // Wytnij i wyświetl każdy "ząb"
+          extractTeeth(teeth);
+        }
+
+
+        // Funkcja znajdująca zęby o określonym kolorze
+        function findTeethByColor(
+          imageData,
+          width,
+          height,
+          targetColor,
+          tolerance,
+          debugCtx,
+          colorName
+        ) {
+          // Utwórz maskę binarną dla pikseli o określonym kolorze
+          const binaryMask = new Uint8Array(width * height);
+
+          for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+              const idx = (y * width + x) * 4;
+              const r = imageData[idx];
+              const g = imageData[idx + 1];
+              const b = imageData[idx + 2];
+
+              // Sprawdź, czy piksel ma kolor zbliżony do docelowego
+              if (colorName === "blue" && isBluePixel(r, g, b)) {
+                binaryMask[y * width + x] = 1;
+                // Opcjonalnie zaznacz na canvas debugowania
+                if (debugCtx) {
+                  debugCtx.fillStyle = "rgba(0, 0, 255, 0.3)";
+                  debugCtx.fillRect(x, y, 1, 1);
+                }
+              } else if (colorName === "red" && isRedPixel(r, g, b)) {
+                binaryMask[y * width + x] = 1;
+                // Opcjonalnie zaznacz na canvas debugowania
+                if (debugCtx) {
+                  debugCtx.fillStyle = "rgba(255, 0, 0, 0.3)";
+                  debugCtx.fillRect(x, y, 1, 1);
+                }
+              }
+            }
+          }
+
+          // Znajdź połączone komponenty (zęby)
+          return findConnectedComponents(binaryMask, width, height, colorName);
+        }
+
+        // Funkcja sprawdzająca, czy piksel jest niebieski
+        function isBluePixel(r, g, b) {
+          // Niebieski ma wysoki składnik B, niskie R i G
+          return b > 100 && r < 100 && g < 100;
+        }
+
+        // Funkcja sprawdzająca, czy piksel jest czerwony
+        function isRedPixel(r, g, b) {
+          // Czerwony ma wysoki składnik R, niskie G i B
+          return r > 100 && g < 100 && b < 100;
+        }
+
+        // Funkcja znajdująca połączone komponenty (zęby)
+        function findConnectedComponents(binaryMask, width, height, colorName) {
+          const visited = new Uint8Array(width * height);
+          const components = [];
+          const minComponentSize = 100; // Minimalna liczba pikseli, aby uznać za ząb
+
+          // Funkcja pomocnicza do przeszukiwania w głąb (DFS)
+          function dfs(x, y, component) {
+            const stack = [{ x, y }];
+
+            while (stack.length > 0) {
+              const { x, y } = stack.pop();
+              const idx = y * width + x;
+
+              if (
+                x < 0 ||
+                x >= width ||
+                y < 0 ||
+                y >= height ||
+                visited[idx] ||
+                !binaryMask[idx]
+              ) {
+                continue;
+              }
+
+              visited[idx] = 1;
+              component.pixels.push({ x, y });
+              component.x1 = Math.min(component.x1, x);
+              component.y1 = Math.min(component.y1, y);
+              component.x2 = Math.max(component.x2, x);
+              component.y2 = Math.max(component.y2, y);
+
+              // Sprawdź sąsiednie piksele
+              stack.push({ x: x + 1, y });
+              stack.push({ x: x - 1, y });
+              stack.push({ x, y: y + 1 });
+              stack.push({ x, y: y - 1 });
+            }
+          }
+
+          // Przeszukaj cały obraz
+          for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+              const idx = y * width + x;
+
+              if (!visited[idx] && binaryMask[idx]) {
+                const component = {
+                  pixels: [],
+                  x1: width,
+                  y1: height, // Początkowe wartości dla min
+                  x2: 0,
+                  y2: 0, // Początkowe wartości dla max
+                  color: colorName,
+                };
+
+                dfs(x, y, component);
+
+                // Dodaj tylko komponenty o odpowiednim rozmiarze
+                if (component.pixels.length >= minComponentSize) {
+                  // Oblicz środek komponentu
+                  component.x = Math.floor((component.x1 + component.x2) / 2);
+                  component.y = Math.floor((component.y1 + component.y2) / 2);
+
+                  // Dodaj margines do granic komponentu
+                  const margin = 5;
+                  component.x1 = Math.max(0, component.x1 - margin);
+                  component.y1 = Math.max(0, component.y1 - margin);
+                  component.x2 = Math.min(width - 1, component.x2 + margin);
+                  component.y2 = Math.min(height - 1, component.y2 + margin);
+
+                  // Oblicz szerokość i wysokość
+                  component.width = component.x2 - component.x1;
+                  component.height = component.y2 - component.y1;
+
+                  components.push(component);
+                }
+              }
+            }
+          }
+
+          return components;
+        }
+
+        // Funkcja wycinająca i wyświetlająca zęby
+        function extractTeeth(teeth) {
+          if (teeth.length === 0) {
+            alert(
+              "Nie wykryto żadnych zębów. Spróbuj dostosować parametry wykrywania."
+            );
+            return;
+          }
+
+          // Liczniki dla niebieskich i czerwonych zębów
+          let blueCount = 0;
+          let redCount = 0;
+
+          // Aktualizuj pasek postępu
+          progressBar.style.width = "0%";
+          progressBar.textContent = "0%";
+
+          // Przetwarzaj każdy ząb
+          teeth.forEach((tooth, index) => {
+            setTimeout(() => {
+              // Utwórz canvas do wycinania
+              const canvas = document.createElement("canvas");
+              canvas.width = tooth.width;
+              canvas.height = tooth.height;
+              const ctx = canvas.getContext("2d");
+
+              // Wytnij fragment obrazu
+              ctx.drawImage(
+                originalImage,
+                tooth.x1,
+                tooth.y1,
+                tooth.width,
+                tooth.height,
+                0,
+                0,
+                tooth.width,
+                tooth.height
+              );
+
+              // Jeśli zaznaczono opcję usuwania tła
+              if (removeBackgroundCheckbox.checked) {
+                removeBackground(ctx, tooth);
+              }
+
+              // Pobierz dane obrazu
+              const imageData = canvas.toDataURL("image/png");
+
+              // Nadaj nazwę zębowi
+              let name;
+              if (tooth.color === "blue") {
+                blueCount++;
+                name = `blue-${blueCount}`;
+              } else {
+                redCount++;
+                name = `red-${redCount}`;
+              }
+
+              // Dodaj wycinek do listy
+              extractedImages.push({
+                name: name,
+                data: imageData,
+                width: tooth.width,
+                height: tooth.height,
+              });
+
+              // Wyświetl wycinek
+              displayExtractedImage(name, imageData);
+
+              // Aktualizuj pasek postępu
+              const progress = Math.round(((index + 1) / teeth.length) * 100);
+              progressBar.style.width = `${progress}%`;
+              progressBar.textContent = `${progress}%`;
+
+              // Włącz przycisk pobierania po zakończeniu
+              if (index === teeth.length - 1) {
+                downloadAllBtn.disabled = false;
+              }
+            }, index * 100); // Opóźnienie dla lepszej wizualizacji procesu
+          });
+        }
+
+        // Funkcja usuwająca tło
+        function removeBackground(ctx, tooth) {
+          try {
+            const imageData = ctx.getImageData(0, 0, tooth.width, tooth.height);
+            const data = imageData.data;
+
+            for (let i = 0; i < data.length; i += 4) {
+              const r = data[i];
+              const g = data[i + 1];
+              const b = data[i + 2];
+
+              // Sprawdź, czy piksel jest tłem (jasny kolor)
+              if (isBackgroundPixel(r, g, b)) {
+                // Ustaw przezroczystość
+                data[i + 3] = 0;
+              }
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+          } catch (error) {
+            console.error("Błąd podczas usuwania tła:", error);
+            // Nie rób nic w przypadku błędu - pozostaw obraz bez zmian
+          }
+        }
+
+        // Funkcja sprawdzająca, czy piksel jest tłem
+        function isBackgroundPixel(r, g, b) {
+          // Tło jest jasne (białe lub jasnoszare)
+          const brightness = (r + g + b) / 3;
+          return brightness > 200;
+        }
+
+        // Funkcja wyświetlająca wycinek
+        function displayExtractedImage(name, imageData) {
+          // Utwórz element dla wyciętego obrazu
+          const extractedImageElement = document.createElement("div");
+          extractedImageElement.className = "extracted-image";
+
+          // Dodaj obraz
+          const img = document.createElement("img");
+          img.src = imageData;
+          img.alt = name;
+          extractedImageElement.appendChild(img);
+
+          // Dodaj nazwę
+          const nameElement = document.createElement("div");
+          nameElement.className = "name";
+          nameElement.textContent = name;
+          extractedImageElement.appendChild(nameElement);
+
+          // Dodaj przycisk usuwania
+          const deleteBtn = document.createElement("button");
+          deleteBtn.textContent = "Usuń";
+          deleteBtn.addEventListener("click", function () {
+            // Usuń z listy
+            extractedImages = extractedImages.filter(
+              (img) => img.name !== name
+            );
+
+            // Usuń z widoku
+            extractedImageElement.remove();
+          });
+          extractedImageElement.appendChild(deleteBtn);
+
+          // Dodaj do kontenera
+          extractedImagesContainer.appendChild(extractedImageElement);
+        }
+
+        // Obsługa przycisku pobierania wszystkich obrazów
+        downloadAllBtn.addEventListener("click", function () {
+          if (extractedImages.length === 0) {
+            alert("Brak wyciętych obrazów do pobrania.");
+            return;
+          }
+
+          // Utwórz folder images, jeśli nie istnieje
+          const folderCreationMessage =
+            'Upewnij się, że folder "images" istnieje w głównym katalogu projektu.';
+          alert(
+            `Zapisywanie ${extractedImages.length} obrazów do folderu "images".\n${folderCreationMessage}`
+          );
+
+          // Wyświetl instrukcje
+          const instructions = document.createElement("div");
+          instructions.className = "instructions";
+          instructions.innerHTML = `
+                    <h3>Instrukcje zapisywania obrazów:</h3>
+                    <ol>
+                        <li>Kliknij prawym przyciskiem myszy na każdy obrazek</li>
+                        <li>Wybierz "Zapisz obraz jako..."</li>
+                        <li>Zapisz w folderze "images" z nazwą podaną poniżej obrazka</li>
+                    </ol>
+                    <p>Po zapisaniu wszystkich obrazów, odkomentuj linię <code>// loadToothImages();</code> na końcu pliku <code>script.js</code>, aby aplikacja używała rzeczywistych obrazów zębów.</p>
+                `;
+
+          // Sprawdź, czy instrukcje już istnieją
+          const existingInstructions = document.querySelector(
+            ".container .instructions:last-child"
+          );
+          if (!existingInstructions || existingInstructions !== instructions) {
+            document.querySelector(".container").appendChild(instructions);
+          }
+
+          // Dodaj linki do pobrania dla każdego obrazu
+          extractedImages.forEach((image) => {
+            const link = document.createElement("a");
+            link.href = image.data;
+            link.download = `${image.name}.png`;
+            link.textContent = `Pobierz ${image.name}.png`;
+            link.className = "download-link";
+            link.style.display = "block";
+            link.style.margin = "5px 0";
+
+            // Dodaj link pod obrazem
+            const imageElement = document.querySelector(
+              `.extracted-image .name:contains('${image.name}')`
+            ).parentNode;
+            if (imageElement && !imageElement.querySelector(".download-link")) {
+              imageElement.appendChild(link);
+            }
+          });
+        });
+
+        // Pomocnicza funkcja do wyszukiwania elementów z tekstem
+        if (!Element.prototype.matches) {
+          Element.prototype.matches =
+            Element.prototype.msMatchesSelector ||
+            Element.prototype.webkitMatchesSelector;
+        }
+
+        if (!Element.prototype.closest) {
+          Element.prototype.closest = function (s) {
+            var el = this;
+            do {
+              if (el.matches(s)) return el;
+              el = el.parentElement || el.parentNode;
+            } while (el !== null && el.nodeType === 1);
+            return null;
+          };
+        }
+
+        // Dodaj metodę :contains do selektorów
+        jQuery.expr[":"].contains = function (a, i, m) {
+          return (
+            jQuery(a).text().toUpperCase().indexOf(m[3].toUpperCase()) >= 0
+          );
+        };
+      });
+    </script>
+  </body>
+</html>

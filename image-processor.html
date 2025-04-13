@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MaroDent - Procesor Obrazów Zębów</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1, h2 {
+            text-align: center;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .image-container {
+            position: relative;
+            border: 1px solid #ccc;
+            overflow: hidden;
+            margin: 0 auto;
+        }
+        
+        #original-image {
+            display: block;
+            max-width: 100%;
+        }
+        
+        .selection {
+            position: absolute;
+            border: 2px dashed red;
+            background-color: rgba(255, 0, 0, 0.2);
+            pointer-events: none;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        button {
+            padding: 8px 16px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        .instructions {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .extracted-images {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .extracted-image {
+            border: 1px solid #ddd;
+            padding: 5px;
+            text-align: center;
+        }
+        
+        .extracted-image img {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .extracted-image .name {
+            margin-top: 5px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>MaroDent - Procesor Obrazów Zębów</h1>
+    
+    <div class="container">
+        <div class="instructions">
+            <h3>Instrukcje:</h3>
+            <ol>
+                <li>Kliknij i przeciągnij na obrazku, aby zaznaczyć obszar zęba</li>
+                <li>Kliknij "Wytnij zaznaczony obszar", aby wyciąć zaznaczony ząb</li>
+                <li>Nadaj nazwę wyciętemu zębowi (np. "blue-1", "red-2")</li>
+                <li>Powtórz dla wszystkich zębów</li>
+                <li>Kliknij "Pobierz wszystkie obrazy", aby pobrać wycinki</li>
+            </ol>
+        </div>
+        
+        <div class="controls">
+            <button id="reset-btn">Resetuj zaznaczenie</button>
+            <button id="extract-btn" disabled>Wytnij zaznaczony obszar</button>
+            <button id="download-all-btn">Pobierz wszystkie obrazy</button>
+        </div>
+        
+        <div class="image-container">
+            <img id="original-image" src="tooth.jpg" alt="Obraz zębów">
+            <div id="selection" class="selection" style="display: none;"></div>
+        </div>
+        
+        <h2>Wycinki zębów</h2>
+        <div id="extracted-images" class="extracted-images">
+            <!-- Tutaj będą dodawane wycinki zębów -->
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elementy DOM
+            const originalImage = document.getElementById('original-image');
+            const selection = document.getElementById('selection');
+            const imageContainer = document.querySelector('.image-container');
+            const resetBtn = document.getElementById('reset-btn');
+            const extractBtn = document.getElementById('extract-btn');
+            const downloadAllBtn = document.getElementById('download-all-btn');
+            const extractedImagesContainer = document.getElementById('extracted-images');
+            
+            // Zmienne do obsługi zaznaczenia
+            let isSelecting = false;
+            let startX = 0;
+            let startY = 0;
+            let extractedImages = [];
+            
+            // Czekaj na załadowanie obrazu
+            originalImage.onload = function() {
+                // Ustaw szerokość kontenera na szerokość obrazu
+                imageContainer.style.width = originalImage.width + 'px';
+            };
+            
+            // Obsługa zaznaczania obszaru
+            imageContainer.addEventListener('mousedown', function(e) {
+                // Pobierz pozycję kliknięcia względem kontenera
+                const rect = imageContainer.getBoundingClientRect();
+                startX = e.clientX - rect.left;
+                startY = e.clientY - rect.top;
+                
+                // Rozpocznij zaznaczanie
+                isSelecting = true;
+                
+                // Pokaż zaznaczenie
+                selection.style.display = 'block';
+                selection.style.left = startX + 'px';
+                selection.style.top = startY + 'px';
+                selection.style.width = '0';
+                selection.style.height = '0';
+                
+                // Wyłącz przycisk wycinania
+                extractBtn.disabled = true;
+            });
+            
+            imageContainer.addEventListener('mousemove', function(e) {
+                if (!isSelecting) return;
+                
+                // Pobierz aktualną pozycję myszy względem kontenera
+                const rect = imageContainer.getBoundingClientRect();
+                const currentX = e.clientX - rect.left;
+                const currentY = e.clientY - rect.top;
+                
+                // Oblicz szerokość i wysokość zaznaczenia
+                const width = Math.abs(currentX - startX);
+                const height = Math.abs(currentY - startY);
+                
+                // Oblicz lewy górny róg zaznaczenia
+                const left = Math.min(startX, currentX);
+                const top = Math.min(startY, currentY);
+                
+                // Aktualizuj zaznaczenie
+                selection.style.left = left + 'px';
+                selection.style.top = top + 'px';
+                selection.style.width = width + 'px';
+                selection.style.height = height + 'px';
+            });
+            
+            imageContainer.addEventListener('mouseup', function() {
+                if (!isSelecting) return;
+                
+                // Zakończ zaznaczanie
+                isSelecting = false;
+                
+                // Włącz przycisk wycinania
+                extractBtn.disabled = false;
+            });
+            
+            // Obsługa przycisku resetowania
+            resetBtn.addEventListener('click', function() {
+                // Ukryj zaznaczenie
+                selection.style.display = 'none';
+                
+                // Wyłącz przycisk wycinania
+                extractBtn.disabled = true;
+            });
+            
+            // Obsługa przycisku wycinania
+            extractBtn.addEventListener('click', function() {
+                // Pobierz wymiary zaznaczenia
+                const left = parseInt(selection.style.left);
+                const top = parseInt(selection.style.top);
+                const width = parseInt(selection.style.width);
+                const height = parseInt(selection.style.height);
+                
+                // Sprawdź, czy zaznaczenie jest wystarczająco duże
+                if (width < 10 || height < 10) {
+                    alert('Zaznaczenie jest zbyt małe. Spróbuj ponownie.');
+                    return;
+                }
+                
+                // Utwórz canvas do wycinania
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                
+                // Wytnij fragment obrazu
+                ctx.drawImage(
+                    originalImage,
+                    left, top, width, height,
+                    0, 0, width, height
+                );
+                
+                // Pobierz dane obrazu
+                const imageData = canvas.toDataURL('image/png');
+                
+                // Zapytaj o nazwę zęba
+                const name = prompt('Podaj nazwę zęba (np. blue-1, red-2):', '');
+                if (!name) return;
+                
+                // Dodaj wycinek do listy
+                extractedImages.push({
+                    name: name,
+                    data: imageData,
+                    width: width,
+                    height: height
+                });
+                
+                // Wyświetl wycinek
+                displayExtractedImage(name, imageData);
+                
+                // Ukryj zaznaczenie
+                selection.style.display = 'none';
+                
+                // Wyłącz przycisk wycinania
+                extractBtn.disabled = true;
+            });
+            
+            // Funkcja wyświetlająca wycinek
+            function displayExtractedImage(name, imageData) {
+                // Utwórz element dla wyciętego obrazu
+                const extractedImageElement = document.createElement('div');
+                extractedImageElement.className = 'extracted-image';
+                
+                // Dodaj obraz
+                const img = document.createElement('img');
+                img.src = imageData;
+                img.alt = name;
+                extractedImageElement.appendChild(img);
+                
+                // Dodaj nazwę
+                const nameElement = document.createElement('div');
+                nameElement.className = 'name';
+                nameElement.textContent = name;
+                extractedImageElement.appendChild(nameElement);
+                
+                // Dodaj przycisk usuwania
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Usuń';
+                deleteBtn.addEventListener('click', function() {
+                    // Usuń z listy
+                    extractedImages = extractedImages.filter(img => img.name !== name);
+                    
+                    // Usuń z widoku
+                    extractedImageElement.remove();
+                });
+                extractedImageElement.appendChild(deleteBtn);
+                
+                // Dodaj do kontenera
+                extractedImagesContainer.appendChild(extractedImageElement);
+            }
+            
+            // Obsługa przycisku pobierania wszystkich obrazów
+            downloadAllBtn.addEventListener('click', function() {
+                if (extractedImages.length === 0) {
+                    alert('Brak wyciętych obrazów do pobrania.');
+                    return;
+                }
+                
+                // Utwórz archiwum ZIP
+                alert('W normalnych warunkach, tutaj zostałby utworzony plik ZIP z wszystkimi obrazami. ' +
+                      'Ponieważ nie możemy tego zrobić bezpośrednio w przeglądarce, zapisz każdy obraz osobno ' +
+                      'klikając prawym przyciskiem myszy na obrazek i wybierając "Zapisz obraz jako...".');
+                
+                // Wyświetl instrukcje
+                const instructions = document.createElement('div');
+                instructions.className = 'instructions';
+                instructions.innerHTML = `
+                    <h3>Instrukcje zapisywania obrazów:</h3>
+                    <ol>
+                        <li>Kliknij prawym przyciskiem myszy na każdy obrazek</li>
+                        <li>Wybierz "Zapisz obraz jako..."</li>
+                        <li>Zapisz w folderze "images" z nazwą podaną poniżej obrazka</li>
+                    </ol>
+                `;
+                document.querySelector('.container').appendChild(instructions);
+            });
+        });
+    </script>
+</body>
+</html>
