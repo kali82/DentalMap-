@@ -186,7 +186,19 @@
           <button id="zoom-in-btn" class="zoom-btn">+</button>
           <button id="undo-btn" class="undo-btn" disabled>Cofnij</button>
         </div>
+        <div class="tooth-width-controls">
+          <label for="tooth-width-slider">Szerokość zęba:</label>
+          <input type="range" id="tooth-width-slider" class="tooth-width-slider" min="10" max="100" value="50">
+          <span id="tooth-width-value" class="tooth-width-value">2.5 cm</span>
+        </div>
+        <div id="tooth-width-chart" class="tooth-width-chart">
+          <h3>Rzeczywiste szerokości zębów (w cm)</h3>
+          <!-- Tutaj będzie wyświetlany wykres szerokości zębów -->
+        </div>
         <div id="teeth-workspace" class="teeth-workspace">
+          <!-- Osie X i Y -->
+          <div class="x-axis"></div>
+          <div class="y-axis"></div>
           <!-- Tutaj będą umieszczane przeciągnięte zęby -->
         </div>
       </div>

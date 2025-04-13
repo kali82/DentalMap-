@@ -154,6 +154,137 @@ button:hover {
   height: 500px;
 }
 
+/* Style dla osi X i Y */
+.x-axis, .y-axis {
+  position: absolute;
+  z-index: 0;
+}
+
+.x-axis {
+  height: 2px;
+  width: 100%;
+  top: 50%;
+  background-color: rgba(52, 152, 219, 0.5);
+}
+
+.y-axis {
+  width: 2px;
+  height: 100%;
+  left: 50%;
+  background-color: rgba(231, 76, 60, 0.5);
+}
+
+.axis-label {
+  position: absolute;
+  font-size: 10px;
+  color: #333;
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 2px 4px;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  z-index: 1;
+}
+
+/* Style dla podziałek na osiach */
+.axis-tick {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.2);
+  z-index: 0;
+}
+
+.x-tick {
+  width: 1px;
+  height: 6px;
+  top: calc(50% - 3px);
+}
+
+.y-tick {
+  height: 1px;
+  width: 6px;
+  left: calc(50% - 3px);
+}
+
+/* Styl dla etykiety punktu (0,0) */
+.origin-label {
+  font-size: 9px;
+  font-weight: bold;
+  padding: 2px 5px;
+  border-radius: 4px;
+  z-index: 2;
+}
+
+/* Style dla wykresu szerokości zębów */
+.tooth-width-chart {
+  margin-top: 10px;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 5px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tooth-width-chart h3 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #2c3e50;
+}
+
+.tooth-width-info {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+
+.tooth-width-info .tooth-type {
+  width: 80px;
+  font-weight: bold;
+}
+
+.tooth-width-info .tooth-width-value {
+  width: 60px;
+  text-align: right;
+}
+
+.tooth-width-info .tooth-width-bar {
+  flex-grow: 1;
+  height: 12px;
+  margin: 0 10px;
+  background-color: #ecf0f1;
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.tooth-width-info .tooth-width-bar-fill {
+  height: 100%;
+  background-color: #3498db;
+  border-radius: 2px;
+}
+
+/* Style dla kontrolek szerokości zęba */
+.tooth-width-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.tooth-width-slider {
+  width: 100px;
+}
+
+.tooth-width-value {
+  min-width: 40px;
+  text-align: center;
+  font-weight: bold;
+}
+
+/* Style dla zaznaczonego zęba z kontrolkami szerokości */
+.tooth.with-width-controls {
+  outline: 2px solid #e67e22;
+  outline-offset: 2px;
+}
+
 /* Kontrolki zoom */
 .zoom-controls {
   display: flex;
